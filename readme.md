@@ -132,9 +132,26 @@ Spring Framework 中包含的原始 Web 框架 Spring Web MVC 是专门为 Servl
 Spring也提供了很多基础功能（事务管理、持久化框架集成等等），将应用逻辑的开发留给了你。
 
 ****
+# 三. 入门程序
 
+1. bean 标签的 id 属性不可以重复,因为 Spring 容器是一个 Map 结构,id 是唯一的 key
 
+2. 当 Spring 启动时会扫描 XML 或注解配置，读取每一个 Bean 的定义信息,然后使用反射机制,根据配置的 class 名称调用该对象的无参构造器创建对象,如果没有无参构造器则会报错:
 
+```java
+Class<?> clazz = Class.forName("com.cell.spring6.first_code.bean.User");
+Object obj = clazz.getDeclaredConstructor().newInstance();
+```
+
+3. 在 xml 文件中可以使用 JDK 中的类,例如: java.util.Date
+
+4. 可以使用带类型参数的 getBean() 方法对某个类进行向下转型:
+
+```java
+User user = applicationContext.getBean("userBean", User.class);
+```
+
+****
 
 
 
