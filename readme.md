@@ -46,7 +46,7 @@ private UserService userService; // 由 Spring 创建并注入
 在 Spring 中，控制反转的具体实现方式就是依赖注入,Spring 会在运行时自动将所依赖的 Bean 注入到目标对象中,常见的三种注入方式:
 
 - 构造器注入:通过构造方法注入依赖，推荐用于必须依赖的注入
-- setter:通过 setter 方法注入，可选依赖
+- set:通过 setter 方法注入，可选依赖
 - 字段注入:直接通过属性注解注入（不推荐于大项目中）
 
 > 所以通过 Spring 框架可以解决 MVC 架构模式中的高耦合现象,让程序面向接口编程, 提高整体的扩展性
@@ -152,11 +152,459 @@ User user = applicationContext.getBean("userBean", User.class);
 ```
 
 ****
+# 四. Spring 对 IoC 的实现
 
+## 1. 依赖注入
 
+### 1.1 set 注入
 
+set 注入是基于 set 方法实现的，底层会通过反射机制调用属性对应的 set 方法然后给属性赋值(此时对象已被实例化,所以需要无参构造器):
 
+```xml
+<bean id="userDaoBean" class="com.cell.spring6.first_code.dao.UserDaoImpl"/>
 
+<bean id="userServiceBean" class="com.cell.spring6.first_code.service.UserService">
+    <property name="userDaoImpl" ref="userDaoBean"/>
+</bean>
 
+<!--等价于-->
+<bean id="userServiceBean" class="com.cell.spring6.first_code.service.UserService">
+<property name="userDaoImpl">
+    <ref bean="userDaoBean"/>
+    ...
+</property>
+</bean>
+```
+
+通过 property 标签获取到属性名 userDaoImpl, 然后通过属性名推断出 set 方法名 setUserDaoImpl() ,通过反射机制调用这个 set 方法给 UserService 类中的 userDaoImpl 属性赋值,
+ref 是要注入的 bean 对象的 id,通过这个标签完成 bean 的装配,需要注意的是 name 标签的内容是与 set 方法名对应的,如果 UserService 类中的 set 方法名为 setAbc(),
+那么 name 属性中的内容就要变成 `name="abc"`,当然 ref 属性可以有多个,也就是对应多个 set 方法
+
+****
+### 1.2 构造注入
+
+通过调用构造方法来给属性赋值(对象实例化过程中执行,此时可以不提供无参构造器):
+
+```xml
+<bean id="orderDaoBean" class="com.cell.spring6.first_code.dao.OrderDao"/>
+<bean id="orderServiceBean" class="com.cell.spring6.first_code.service.OrderService">
+    <!--第一个参数下标是0-->
+    <constructor-arg index="0" ref="orderDaoBean"/>
+    <!--第二个参数下标是1-->
+    <constructor-arg index="1" ref="userDaoBean"/>
+    
+    <!--使用属性名-->
+    <constructor-arg name="orderDao" ref="orderDaoBean"/>
+    <constructor-arg name="userDaoImpl" ref="userDaoBean"/>
+
+    <!--只使用 ref-->
+    <constructor-arg ref="orderDaoBean"/>
+    <constructor-arg ref="userDaoBean"/>
+</bean>
+```
+
+使用构造注入时需要配置对应的参数,可以使用下标,也可也使用属性名,或者只使用 ref 标签(Spring 会自动进行类型推断)
+
+****
+### 1.3 set 注入专题
+
+#### 1. 注入外部 Bean 和内部 Bean
+
+```xml
+
+<bean id="orderDaoBean" class="com.cell.spring6.first_code.dao.OrderDao"/>
+        <!--外部 bean-->
+<bean id="orderServiceBean" class="com.cell.spring6.first_code.service.OrderService">
+    <property name="orderDao" ref="orderDaoBean"/>
+</bean>
+        <!--内部 bean-->
+<bean id="orderServiceBean2" class="com.cell.spring6.first_code.service.OrderService">
+    <property name="orderDao">
+        <bean class="com.cell.spring6.first_code.dao.OrderDao"/>
+    </property>
+</bean>
+```
+
+****
+#### 2. 注入简单类型
+
+如果给简单类型赋值，使用 value 属性或 value 标签,而不是 ref,
+
+```xml
+<bean id="userBean" class="com.cell.spring6.first_code.bean.User">
+    <property name="username" value="张三"/>
+    <property name="password" value="123"/>
+    <property name="age" value="20"/>
+</bean>
+```
+
+简单类型包括:
+
+```java
+public class BeanUtils{
+    //.......
+	public static boolean isSimpleProperty(Class<?> type) {
+		Assert.notNull(type, "'type' must not be null");
+		return isSimpleValueType(type) || (type.isArray() && isSimpleValueType(type.getComponentType()));
+	}
+    
+	public static boolean isSimpleValueType(Class<?> type) {
+		return (Void.class != type && void.class != type &&
+				(ClassUtils.isPrimitiveOrWrapper(type) ||
+				Enum.class.isAssignableFrom(type) ||
+				CharSequence.class.isAssignableFrom(type) ||
+				Number.class.isAssignableFrom(type) ||
+				Date.class.isAssignableFrom(type) ||
+				Temporal.class.isAssignableFrom(type) ||
+				URI.class == type ||
+				URL.class == type ||
+				Locale.class == type ||
+				Class.class == type));
+	}
+    //........
+}
+```
+
+- **基本数据类型**
+- **基本数据类型对应的包装类**
+- **String或其他的CharSequence子类**
+- **Number子类**
+- **Date子类**
+- **Enum子类**
+- **URI**
+- **URL**
+- **Temporal子类**
+- **Locale**
+- **Class**
+- **另外还包括以上简单值类型对应的数组类型。**
+
+需要注意的是: Java.util.Date 虽然被归并为简单类型(如果把 Date 当做简单类型的话，日期字符串格式不能随便写。格式必须符合 Date 的 toString() 方法格式),但实际使用中还是用 ref 的形式比较合适:
+
+```xml
+<bean id="birthDate" class="java.util.Date">
+    <constructor-arg value="2024/01/01"/>
+</bean>
+<bean id="user" class="com.cell.spring6.first_code.bean.User">
+    <property name="birthDate" ref="birthDate"/>
+</bean>
+```
+
+简单类型的注入主要是用来给数据源的属性值赋值的:
+
+```xml
+<bean id="myDataSourceBean" class="com.cell.spring6.first_code.jdbc.MyDataSource">
+    <property name="driver" value="com.mysql.cj.jdbc.Driver"/>
+    <property name="url" value="jdbc:mysql://localhost:3306/spring-notes"/>
+    <property name="username" value="root"/>
+    <property name="password" value="123"/>
+</bean>
+```
+
+****
+#### 3. 级联属性赋值
+
+原始写法:
+
+```xml
+<bean id="clazzBean" class="com.cell.spring6.first_code.bean.Clazz">
+    <property name="name" value="高三一班"/>
+</bean>
+
+<bean id="studentBean" class="com.cell.spring6.first_code.bean.Student">
+    <property name="name" value="张三"/>
+    <property name="clazz" ref="clazzBean"/>
+</bean>
+```
+
+级联写法:使用这种方法需要在 clazz 中添加 get 方法,并且配置的顺序不能颠倒
+
+```xml
+<bean id="clazzBean" class="com.cell.spring6.first_code.bean.Clazz"/>
+
+<bean id="studentBean" class="com.cell.spring6.first_code.bean.Student">
+    <property name="name" value="张三"/>
+    <property name="clazz" ref="clazzBean"/>
+    <property name="clazz.name" value="高三一班"/>
+</bean>
+```
+
+****
+#### 4. 注入数组
+
+如果数组中放的是简单类型,就使用 value;如果放的是非简单类型就使用 ref:
+
+```xml
+<bean id="person" class="...">
+    <property name="favariteFoods">
+        <array>
+            <value>鸡排</value>
+            <value>汉堡</value>
+            <value>鹅肝</value>
+        </array>
+    </property>
+</bean>
+```
+
+```xml
+
+<bean id="goods1" class="...">
+    <property name="name" value="西瓜"/>
+</bean>
+
+<bean id="goods2" class="...">
+    <property name="name" value="苹果"/>
+</bean>
+
+<bean id="order" class="...">
+    <property name="goods">
+        <array>
+            <!--这里使用ref标签即可-->
+            <ref bean="goods1"/>
+            <ref bean="goods2"/>
+        </array>
+    </property>
+</bean>
+```
+
+****
+#### 5. 注入 List 和 Set 集合
+
+注入 List:
+
+```xml
+<bean id="peopleBean" class="...">
+    <property name="names">
+        <list>
+            <value>铁锤</value>
+            <value>张三</value>
+            <value>张三</value>
+            <value>张三</value>
+            <value>狼</value>
+        </list>
+    </property>
+</bean>
+```
+
+注入 Set:
+
+```xml
+
+<bean id="peopleBean" class="...">
+    <property name="phones">
+        <set>
+            <!--非简单类型可以使用ref，简单类型使用value-->
+            <value>110</value>
+            <value>110</value>
+            <value>120</value>
+            <value>120</value>
+            <value>119</value>
+            <value>119</value>
+        </set>
+    </property>
+</bean>
+```
+
+****
+#### 6. 注入 Map 和 Properties 集合
+
+```xml
+<bean id="peopleBean" class="...">
+    <property name="addrs">
+        <map>
+            <!--如果key不是简单类型，使用 key-ref 属性-->
+            <!--如果value不是简单类型，使用 value-ref 属性-->
+            <entry key="1" value="北京大兴区"/>
+            <entry key="2" value="上海浦东区"/>
+            <entry key="3" value="深圳宝安区"/>
+        </map>
+    </property>
+</bean>
+```
+
+```xml
+<bean id="configService" class="...">
+    <property name="settings">
+        <props>
+            <prop key="encoding">UTF-8</prop>
+            <prop key="timeout">3000</prop>
+            <prop key="url">http://baidu.com</prop>
+        </props>
+    </property>
+</bean>
+```
+
+****
+#### 7. 注入 null 和空字符串
+
+注入 null:
+
+```xml
+
+<bean id="vipBean" class="...">
+    <property name="email">
+        <null/>
+    </property>
+</bean>
+
+<!--或者什么都不写-->
+<bean id="vipBean" class="..."/>
+```
+
+注入空字符串:
+
+```xml
+
+<bean id="userBean" class="...">
+    <!--空串的第一种方式-->
+    <!--<property name="name" value=""/>-->
+    <!--空串的第二种方式-->
+    <property name="name">
+        <value/>
+    </property>
+</bean>
+```
+#### 8. 注入特殊符号
+
+XML中有5个特殊字符，分别是：<、>、'、"、&,这些会被当做 XML 语法的一部分进行解析，如果这些特殊符号直接出现在注入的字符串当中则会报错
+
+第一种:使用转义字符代替特殊符号,分号不能省略
+
+| 字符  | 转义形式   |
+| --- | ------ |
+| `<` | `&lt;` | 
+| `>` | `&gt;` |
+| `&` | `&amp;` |
+| `"` | `&quot;` |
+| `'` | `&apos;` |
+
+第二种:使用 `<![CDATA[]]>` 注入
+
+因为 value 属性只能接收普通字符串，XML 不会解析属性值中的 <![CDATA[]]>，所以它会当成普通文本解析
+
+```xml
+<bean id="configBean" class="...">
+    <property name="result">
+        <!--这种方式只能只能使用 value 标签,不能使用 value 属性赋值-->
+        <value><![CDATA[ 2 < 3 ]]></value>
+    </property>
+</bean>
+        <!-- 这种方式是错误的 -->
+        <property name="result" value="<![CDATA[ 2 < 3 ]]>"/>
+```
+
+****
+### 1.4 p 命名空间注入
+
+p 命名空间注入是 Spring 提供的一种更简洁的配置方式，用来代替传统的 `<property>` 标签注入属性值,但本质上还是 set 注入,使用 p 命名空间的前提是必须声明 p 命名空间,即在头部加入:
+`xmlns:p="http://www.springframework.org/schema/p"`
+
+简单类型:
+
+```xml
+<bean id="user" class="com.cell.spring6.first_code.bean.User" p:username="Tom" p:age="20"/>
+```
+
+非简单类型:
+
+```xml
+<bean id="address" class="..." p:city="Beijing"/>
+
+<bean id="user" class="com.cell.spring6.first_code.bean.User" p:username="Tom" p:address-ref="address"/>
+```
+
+****
+### 1.5 c 命名空间注入
+
+c 命名空间注入是 Spring 提供的一种更简洁的方式，用来进行构造方法注入（Constructor Injection），它是 `<constructor-arg>` 标签的简化写法,使用的前提是在头部添加:
+`xmlns:c="http://www.springframework.org/schema/c"`
+
+简单类型:
+
+```xml
+<bean id="user" class="com.cell.spring6.first_code.bean.User" c:username="Tom" c:age="20"/>
+```
+
+非简单类型:
+
+```xml
+<bean id="address" class="..." c:city="Beijing"/>
+
+<bean id="user" class="com.cell.spring6.first_code.bean.User" c:username="Tom" c:address-ref="address"/>
+```
+
+****
+### 1.6 util 命名空间注入
+
+Spring 的 util 命名空间是为了更方便地在 XML 配置中定义常用的集合类型对象,它是对原始 `<list>`、`<set>` 等集合配置的封装,使用前提是在头部添加:
+`xmlns:util="http://www.springframework.org/schema/util"` 和 `xsi:schemaLocation="http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd"`
+
+```xml
+<util:list id="bookList">
+    <value>Java</value>
+    <value>Spring</value>
+    <value>MySQL</value>
+</util:list>
+
+<bean id="library" class="...">
+    <property name="books" ref="bookList"/>
+</bean>
+```
+
+定义 Properties bean:
+
+```xml
+<util:properties id="configProperties">
+    <prop key="url">jdbc:mysql://localhost:3306/spring-notes</prop>
+    <prop key="username">root</prop>
+    <prop key="password">123</prop>
+</util:properties>
+```
+
+```xml
+<!--通过 set 方法给 config 属性赋值-->
+<bean id="myDataSource" class="com.cell.spring6.first_code.jdbc.DataSourceConfig">
+    <property name="config" ref="configProperties"/>
+</bean>
+```
+
+****
+### 1.7 基于 XML 的自动装配
+
+1. 根据名称自动装配
+
+userDao 是 userService 的属性,并且 set 方法的名称是与之对应的,才能这样使用
+
+```xml
+<bean id="userDao" class="..."/>
+<bean id="userService" class="..." autowire="byName"/>
+```
+
+2. 根据类型自动装配
+
+只要 userService 里有这些对应的类型的属性,就可以使用
+
+```xml
+<bean class="com.cell.spring6.first_code.bean.User"/>
+<bean class="com.cell.spring6.first_code.bean.Student"/>
+
+<bean id="userService" class="..." autowire="byType"/>
+```
+
+****
+### 1.8 Spring 引入外部属性配置文件
+
+```xml
+<!--使用 property-placeholder 的 location 属性来指定配置文件的路径-->
+<context:property-placeholder location="jdbc.properties"/>
+
+<bean id="dataSource" class="com.cell.spring6.first_code.jdbc.MyDataSource">
+    <property name="driver" value="${jdbc.driver}"/>
+    <property name="url" value="${jdbc.url}"/>
+    <property name="username" value="${jdbc.username}"/>
+    <property name="password" value="${jdbc.password}"/>
+</bean>
+```
+
+****
 
 

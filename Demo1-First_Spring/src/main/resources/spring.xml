@@ -6,4 +6,18 @@
     <bean id="userBean" class="com.cell.spring6.first_code.bean.User"/>
     <bean id="userDaoBean" class="com.cell.spring6.first_code.dao.UserDaoImpl"/>
     <bean id="dateBean" class="java.util.Date"/>
+
+    <bean id="userServiceBean" class="com.cell.spring6.first_code.service.UserService">
+        <property name="userDaoImpl">
+            <ref bean="userDaoBean"/>
+        </property>
+    </bean>
+
+    <bean id="orderDaoBean" class="com.cell.spring6.first_code.dao.OrderDao"/>
+    <bean id="orderServiceBean" class="com.cell.spring6.first_code.service.OrderService">
+        <!--第一个参数下标是0-->
+        <constructor-arg index="0" ref="orderDaoBean"/>
+        <!--第二个参数下标是1-->
+        <constructor-arg index="1" ref="userDaoBean"/>
+    </bean>
 </beans>

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:c="http://www.springframework.org/schema/c"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:util="http://www.springframework.org/schema/util"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/util https://www.springframework.org/schema/util/spring-util.xsd http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd">
+
+    <bean id="orderDaoBean" class="com.cell.spring6.first_code.dao.OrderDao"/>
+    <!--外部 bean-->
+    <bean id="orderServiceBean" class="com.cell.spring6.first_code.service.OrderService">
+        <property name="orderDao" ref="orderDaoBean"/>
+    </bean>
+    <!--内部 bean-->
+    <bean id="orderServiceBean2" class="com.cell.spring6.first_code.service.OrderService">
+        <property name="orderDao">
+            <bean class="com.cell.spring6.first_code.dao.OrderDao"/>
+        </property>
+    </bean>
+
+    <!--注入简单类型-->
+    <bean id="userBean" class="com.cell.spring6.first_code.bean.User">
+        <property name="username" value="张三"/>
+        <property name="password" value="123"/>
+        <property name="age" value="20"/>
+    </bean>
+
+    <!--给数据源属性值注入-->
+    <bean id="myDataSourceBean" class="com.cell.spring6.first_code.jdbc.MyDataSource">
+        <property name="driver" value="com.mysql.cj.jdbc.Driver"/>
+        <property name="url" value="jdbc:mysql://localhost:3306/spring-notes"/>
+        <property name="username" value="root"/>
+        <property name="password" value="123"/>
+    </bean>
+
+    <!--级联属性注入-->
+    <bean id="clazzBean" class="com.cell.spring6.first_code.bean.Clazz"/>
+
+    <bean id="studentBean" class="com.cell.spring6.first_code.bean.Student">
+        <property name="name" value="张三"/>
+        <property name="clazz" ref="clazzBean"/>
+        <property name="clazz.name" value="高三一班"/>
+    </bean>
+
+    <util:properties id="configProperties">
+        <prop key="url">jdbc:mysql://localhost:3306/spring-notes</prop>
+        <prop key="username">root</prop>
+        <prop key="password">123</prop>
+    </util:properties>
+
+    <bean id="dataSourceConfig" class="com.cell.spring6.first_code.jdbc.DataSourceConfig">
+        <property name="config" ref="configProperties"/>
+    </bean>
+
+    <context:property-placeholder location="jdbc.properties"/>
+
+    <bean id="dataSource" class="com.cell.spring6.first_code.jdbc.MyDataSource">
+        <property name="driver" value="${jdbc.driver}"/>
+        <property name="url" value="${jdbc.url}"/>
+        <property name="username" value="${jdbc.username}"/>
+        <property name="password" value="${jdbc.password}"/>
+    </bean>
+</beans>
