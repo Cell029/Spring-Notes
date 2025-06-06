@@ -1,5 +1,6 @@
 package com.cell.spring6.first_code.test;
 
+import com.cell.spring6.first_code.bean.SpringBean;
 import com.cell.spring6.first_code.bean.Student;
 import com.cell.spring6.first_code.jdbc.DataSourceConfig;
 import com.cell.spring6.first_code.jdbc.MyDataSource;
@@ -91,5 +92,46 @@ public class FirstSpringTest {
         ApplicationContext applicationContext = new ClassPathXmlApplicationContext("set-di.xml");
         MyDataSource dataSource = applicationContext.getBean("dataSource", MyDataSource.class);
         System.out.println(dataSource);
+    }
+
+    @Test
+    public void test11() {
+        ApplicationContext applicationContext = new ClassPathXmlApplicationContext("bean-scope.xml");
+        SpringBean springBean1 = applicationContext.getBean("springBean", SpringBean.class);
+        System.out.println(springBean1);
+        SpringBean springBean2 = applicationContext.getBean("springBean", SpringBean.class);
+        System.out.println(springBean2);
+        SpringBean springBean3 = applicationContext.getBean("springBean", SpringBean.class);
+        System.out.println(springBean3);
+    }
+
+    @Test
+    public void test12() {
+        ApplicationContext applicationContext = new ClassPathXmlApplicationContext("bean-scope.xml");
+        SpringBean springBean1 = applicationContext.getBean("springBean2", SpringBean.class);
+        System.out.println(springBean1);
+        SpringBean springBean2 = applicationContext.getBean("springBean2", SpringBean.class);
+        System.out.println(springBean2);
+        SpringBean springBean3 = applicationContext.getBean("springBean2", SpringBean.class);
+        System.out.println(springBean3);
+    }
+
+    @Test
+    public void test13() {
+        ApplicationContext applicationContext = new ClassPathXmlApplicationContext("bean-scope.xml");
+        SpringBean sb1 = applicationContext.getBean("sb", SpringBean.class);
+        SpringBean sb2 = applicationContext.getBean("sb", SpringBean.class);
+        System.out.println(sb1);
+        System.out.println(sb2);
+        // 启动线程
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                SpringBean a = applicationContext.getBean("sb", SpringBean.class);
+                SpringBean b = applicationContext.getBean("sb", SpringBean.class);
+                System.out.println(a);
+                System.out.println(b);
+            }
+        }).start();
     }
 }

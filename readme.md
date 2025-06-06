@@ -606,5 +606,67 @@ userDao 是 userService 的属性,并且 set 方法的名称是与之对应的,�
 ```
 
 ****
+# 五. Bean 的作用域
 
+## 1. singleton
+
+singleton 是 Spring 中的默认作用域,它的含义是：每个 Spring IoC 容器中，某个 Bean 定义对应一个且仅有一个 Bean 实例，
+并且这个实例会被缓存在 Spring 容器中，在 new ClassPathXmlApplicationContext 时就会实例化对象, 无论调用多少次 getBean()，返回的都是同一个对象,
+当容器关闭时会自动销毁
+
+```xml
+<!--如果不显式写 scope 属性，它默认就是 singleton-->
+<bean id="springBean" class="com.cell.spring6.first_code.bean.SpringBean" scope="singleton"/>
+```
+
+工作原理:
+
+当 Spring 容器启动并初始化时开始扫描配置中的所有 Bean ,对 `scope = "singleton"` 的 Bean 提前进行实例化(预实例化),
+然后把这些 Bean 实例放入一个单例缓存池（Map）中，键是 Bean 的名称，值是对象实例,以后每次调用 `getBean("beanName")`，都直接从这个 Map 中返回实例
+
+****
+## 2. prototype
+
+prototype（原型作用域）表示每次从 Spring 容器中获取 Bean 时，都会创建一个全新的对象实例,也就是说 Spring 容器不会缓存这个 Bean 的实例，每次调用 getBean()，
+都会重新创建并返回一个新的实例, Spring 不管理销毁, 需要手动销毁
+
+```xml
+<bean id="springBean2" class="com.cell.spring6.first_code.bean.SpringBean" scope="prototype"/>
+```
+
+****
+## 3. 其它 scope
+
+scope属性的值不止两个，它一共包括8个选项：
+
+- singleton：默认的，单例。
+- prototype：原型。每调用一次 getBean() 方法则获取一个新的 Bean 对象, 或每次注入的时候都是新对象
+- request：一个请求对应一个 Bean。**仅限于在 WEB 应用中使用**。
+- session：一个会话对应一个 Bean。**仅限于在 WEB 应用中使用**。
+- global session：**portlet应用中专用的**。如果在 Servlet 的 WEB 应用中使用 global session的话，和 session 一个效果。（portlet 和 servlet 都是规范。servlet 运行在 servlet容器中，例如 Tomcat。portlet 运行在 portlet 容器中。）
+- application：一个应用对应一个Bean。**仅限于在 WEB 应用中使用。**
+- websocket：一个 websocket 生命周期对应一个 Bean。**仅限于在 WEB 应用中使用。**
+- 自定义scope：很少使用
+
+****
+## 4. 自定义 scope
+
+spring 内置了线程范围的类：org.springframework.context.support.SimpleThreadScope，可以直接用
+
+```xml
+<!--自定义一个 scope, 例如: 一个线程对应一个 Bean-->
+<bean class="org.springframework.beans.factory.config.CustomScopeConfigurer">
+    <property name="scopes">
+        <map>
+            <entry key="myThread">
+                <bean class="org.springframework.context.support.SimpleThreadScope"/>
+            </entry>
+        </map>
+    </property>
+</bean>
+<!--使用自定义的 scope-->
+<bean id="sb" class="com.cell.spring6.first_code.bean.SpringBean" scope="myThread"/>
+```
+
+****
 
