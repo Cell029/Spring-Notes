@@ -1080,9 +1080,118 @@ refundServiceAli.refund();
 抽象工厂模式适用于一系列产品的创建，一个工厂接口对应多个产品类型，实现了“产品族”的整体生成，但不适合频繁新增“产品种类”，否则每个工厂类都要改。
 
 ****
+# 七. Bean 的获取方式
 
+## 1. 通过构造方法获取
 
+默认情况下，会调用Bean的无参数构造方法, 在解析 XML 文件时则会把所有的 Bean 全部实例化:
 
+```xml
+<bean id="userBean" class="com.cell.spring6.first_code.bean.User"/>
+```
+
+****
+## 2. 静态工厂方法实例化
+
+调用某个静态工厂类的静态方法返回 Bean, 尽量用接口作为返回类型
+
+```java
+public class StaticFactory {
+    public static UserService createUserService() {
+        return new UserService();
+    }
+}
+```
+
+```xml
+<bean id="userService" class="com...StaticFactory" factory-method="createUserService"/>
+```
+
+```java
+ApplicationContext context = new ClassPathXmlApplicationContext("...xml");
+UserService userService = context.getBean("...", UserService.class);
+```
+
+相当于执行:
+
+```java
+UserService userService = StaticFactory.createUserService();
+```
+
+****
+## 3. 实例工厂方法实例化(factory-bean)
+
+```java
+public class InstanceFactory {
+    public UserService createUserService() {
+        return new UserService();
+    }
+}
+```
+
+```xml
+<!-- 先注册工厂实例 -->
+<bean id="instanceFactory" class="com...InstanceFactory"/>
+
+<!-- 再通过实例方法创建 Bean -->
+<bean id="userService" factory-bean="instanceFactory" factory-method="createUserService"/>
+```
+
+```java
+ApplicationContext context = new ClassPathXmlApplicationContext("...xml");
+UserService userService = context.getBean("userService", UserService.class);
+```
+
+相当于执行:
+
+```java
+InstanceFactory factory = new InstanceFactory();
+UserService userService = factory.createUserService();
+```
+
+****
+## 4. 实现 FactoryBean 接口实例化
+
+```java
+public class UserServiceFactoryBean implements FactoryBean<UserService> {
+
+    @Override
+    public UserService getObject() throws Exception {
+        return new UserService();  // 可包含复杂逻辑或第三方对象创建
+    }
+
+    @Override
+    public Class<?> getObjectType() {
+        return UserService.class;
+    }
+
+    @Override
+    public boolean isSingleton() {
+        return true;
+    }
+}
+```
+
+```xml
+<bean id="userService" class="com...UserServiceFactoryBean"/>
+```
+
+```java
+ApplicationContext context = new ClassPathXmlApplicationContext("...xml");
+// 获取的是 getObject() 返回的 UserService 实例
+UserService userService = context.getBean("userService", UserService.class);
+// 如果想获取工厂 Bean 本身，要加 & 前缀
+UserServiceFactoryBean factory = (UserServiceFactoryBean) context.getBean("&userService");
+```
+
+****
+## 5. BeanFactory 和 FactoryBean 的区别
+
+BeanFactory 被翻译为 “Bean工厂”, 是 Spring IoC 容器的顶级对象, 负责创建 Bean 对象
+
+FactoryBean 是一个 Bean, 能够辅助 Spring 实例化其它 Bean 对象的一个 Bean
+
+****
 
 
 

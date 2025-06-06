@@ -3,11 +3,11 @@
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
 
+    <!--调用静态方法-->
     <bean id="emailService" class="com.cell.spring6.factory.factory_method.MessageFactory" factory-method="createEmailService" />
 
     <!--先创建工厂对象-->
     <bean id="msgFactory" class="com.cell.spring6.factory.factory_method.MessageFactory" />
-
     <!-- 再通过工厂方法创建 Bean -->
     <bean id="emailServiceInstance" factory-bean="msgFactory" factory-method="createEmailServiceByInstance" />
 
