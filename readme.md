@@ -627,8 +627,8 @@ singleton 是 Spring 中的默认作用域,它的含义是：每个 Spring IoC �
 ****
 ## 2. prototype
 
-prototype（原型作用域）表示每次从 Spring 容器中获取 Bean 时，都会创建一个全新的对象实例,也就是说 Spring 容器不会缓存这个 Bean 的实例，每次调用 getBean()，
-都会重新创建并返回一个新的实例, Spring 不管理销毁, 需要手动销毁
+prototype（原型作用域）表示每次从 Spring 容器中获取 Bean 时，都会创建一个全新的对象实例,也就是说 Spring 容器不会缓存这个 Bean 的实例，
+每次调用 getBean()都会重新创建并返回一个新的实例(完成属性的注入后才能完成实例化), Spring 不管理销毁, 需要手动销毁
 
 ```xml
 <bean id="springBean2" class="com.cell.spring6.first_code.bean.SpringBean" scope="prototype"/>
@@ -1296,6 +1296,82 @@ User userBean = factory.getBean("userBean", User.class);
 - Spring 不会再帮忙执行 Aware 接口、初始化方法、BeanPostProcessor、销毁回调等
 
 ****
+# 九. Bean 的循环依赖问题
+
+循环依赖是指两个或多个 Bean 在创建过程中相互依赖，形成“你依赖我，我又依赖你”的闭环结构,例如:
+
+```java
+// 这两个 Bean 都需要互相注入, 此时就构成了循环依赖
+public class Husband {
+    private String name;
+    private Wife wife;
+}
+
+public class Wife {
+  private String name;
+  private Husband husband;
+}
+```
+
+****
+## 1. singleton 下的 set 注入产生的循环依赖
+
+```xml
+<bean id="husbandBean" class="com.cell.spring6.circular_dependency.Husband" scope="singleton">
+    <property name="name" value="张三"/>
+    <property name="wife" ref="wifeBean"/>
+</bean>
+<bean id="wifeBean" class="com.cell.spring6.circular_dependency.Wife" scope="singleton">
+    <property name="name" value="小花"/>
+    <property name="husband" ref="husbandBean"/>
+</bean>
+```
+
+通过测试得知: 在 singleton + set 注入的情况下，循环依赖是没有问题的, Spring 可以解决这个问题, 结果可以正常打印.
+
+主要原因是在这种模式下 Spring 对 Bean 的管理主要分为两个阶段:
+
+- 第一个阶段:在 Spring 容器加载时就会实例化 Bean, 只要有一个 Bean 被实例化了就马上进行"曝光"(不用等属性进行赋值, 但只有在 singleton 时才会曝光)
+- 第二个阶段:Bean"曝光"后才会进行属性的赋值(set 注入)
+
+****
+## 2. prototype 下的 set 注入产生的循环依赖
+
+将 scope 改为 prototype(只有两个都是 prototype 时才会报错):
+
+```text
+Error creating bean with name 'husbandBean' defined in class path resource [circular_dependency/cd.xml]: 
+Cannot resolve reference to bean 'wifeBean' while setting bean property 'wife'
+Error creating bean with name 'husbandBean': Requested bean is currently in creation: Is there an unresolvable circular reference?
+```
+
+因为此时是调用 getBean() 方法后才会进行 Bean 的实例化, 也就是说每一次的实例化都是一个新的 Bean, 而 Husband 和 Wife 互相依赖对方的实例化作为自己的字段, 
+所以它们会进入一个死循环, 也就是当 Husband 需要 Wife 完成实例化后才能完成实例化, 而 Wife 又需要 Husband 完成实例化后才能完成实例化
+
+****
+## 3. singleton 下的构造注入产生的循环依赖
+
+这个与上面同理, 使用构造器注入时需要先完成属性的注入才能完成 Bean 的实例化, 也就是说也会进入死循环
+
+****
+## 4. Spring 解决循环依赖的机理
+
+> 只有在 set 注入 + singleton 模式下才能解决循环依赖问题, 即 Bean 的实例化和属性赋值是分开执行的, 不会因为某个动作没完成而陷入死循环
+
+在 Spring 底层中有三个缓存(本质上是 Map 集合):
+
+- `private final Map<String, Object> singletonObjects`: 一级缓存, 这个缓存中的 Bean 对象的属性已经完成赋值, 是一个完整的单例 Bean 对象
+- `private final Map<String, Object> earlySingletonObjects`: 二级缓存, 早期的单例 Bean 对象, 此时的 Bean 对象还没有完成属性的赋值
+- `private final Map<String, ObjectFactory<?>> singletonFactories`: 三级缓存, 存储了大量单例工厂对象, 每一个单例 Bean 对象都对应一个单例工厂对象(即创建单例对象时对应的工厂对象)
+
+所以使用这种方法后, 创建的 Bean 对象会提前曝光, 也就是放入缓存中, 当需要获取该 Bean 对象时就会去这三个缓存中找, 从一级到三级, 到三级缓存后就通过 BeanFactory 获取 Bean 然后放入二级缓存中,
+通过这种缓存机制让实例化和属性赋值分开执行, 互不干扰, 从而解决循环依赖问题
+
+****
+
+
+
+
 
 
 
