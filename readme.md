@@ -1192,6 +1192,111 @@ BeanFactory 被翻译为 “Bean工厂”, 是 Spring IoC 容器的顶级对象,
 FactoryBean 是一个 Bean, 能够辅助 Spring 实例化其它 Bean 对象的一个 Bean
 
 ****
+# 八. Bean 的生命周期
+
+Bean 生命周期就是 Spring 如何“创建、管理、使用并最终销毁”一个 Bean 的全过程, 当知道 Bean 的生命周期后, 就能知道在哪个时间点上调用了哪些代码, 也方便后续在特殊的时间节点上编写代码
+
+## 1. Bean 的生命周期之 5 步
+
+[User.java](./Demo1-First_Spring/src/main/java/com/cell/spring6/bean_lifecycle/User.java)
+
+```xml
+<!--init-method属性指定初始化方法; destroy-method属性指定销毁方法-->
+<bean id="userBean" class="com.cell.spring6.bean_lifecycle.User" init-method="initBean" destroy-method="destroyBean">
+    <property name="name" value="zhangsan"/>
+</bean>
+```
+
+- 第一步：实例化Bean
+- 第二步：Bean属性赋值
+- 第三步：初始化Bean
+- 第四步：使用Bean
+- 第五步：销毁Bean
+
+需要注意的是:
+
+- 第一：只有正常关闭 spring 容器，bean 的销毁方法才会被调用
+- 第二：ClassPathXmlApplicationContext 类才有 close() 方法
+- 第三：配置文件中的 init-method 指定初始化方法; destroy-method 指定销毁方法
+
+****
+## 2. Bean 的生命周期之 7 步
+
+额外的两步就是在初始化 Bean 的前后加入 "Bean 后处理器", 手动编写一个类实现 BeanPostProcessor 类，并且重写 before 和 after 方法, 然后在 xml 文件中配置“Bean 后处理器”:
+
+[实现类:LogBeanPostProcessor.java](./Demo1-First_Spring/src/main/java/com/cell/spring6/bean_lifecycle/LogBeanPostProcessor.java)
+
+```xml
+<!--配置Bean后处理器, 这个后处理器将作用于当前配置文件中所有的 bean, 即所有 bean 的声明周期都变为 7 步-->
+<bean class="com.cell.spring6.bean_lifecycle.LogBeanPostProcessor"/>
+```
+
+****
+## 3. Bean 的生命周期之 10 步
+
+- 第一步:实例化
+- 第二步:属性注入
+- 第三步:检查 Bean 是否实现了 Aware 接口,并设置相关依赖
+- 第四步:初始化前处理(bean 后处理器的 before 方法)
+- 第五步:检查 Bean 是否实现了 InitializingBean 接口,并调用接口方法
+- 第六步:初始化
+- 第七步:初始化后处理(bean 后处理器的 after 方法)
+- 第八步:使用
+- 第九步:检查 Bean 是否实现了 DisposableBean 接口,并调用接口方法
+- 第十步:销毁
+
+Aware 相关的接口包括：BeanNameAware、BeanClassLoaderAware、BeanFactoryAware
+
+- 当 Bean 实现了 BeanNameAware，在 Bean 内部知道自己在配置文件或注解中的名字
+- 当 Bean 实现了 BeanClassLoaderAware，Bean 会被注入 ApplicationContext, 它是 BeanFactory 的子接口，功能更强大
+- 当 Bean 实现了 BeanFactoryAware，Bean 会被注入 BeanFactory 容器
+
+过程:
+
+```text
+1.实例化Bean
+2.Bean属性赋值
+3.bean名字：userBean
+3.Bean工厂：org.springframework.beans.factory.support.DefaultListableBeanFactory@2b91004a: defining beans [userBean,com.cell.spring6.bean_lifecycle.LogBeanPostProcessor#0]; root of factory hierarchy
+4.Bean后处理器的before方法执行，即将开始初始化
+5.afterPropertiesSet执行
+6.初始化Bean
+7.Bean后处理器的after方法执行，已完成初始化
+8.使用Bean
+9.DisposableBean destroy
+10.销毁Bean
+```
+
+****
+## 4. Bean 的作用域不同，管理方式不同
+
+- 对于 singleton 作用域的 Bean，Spring 能够精确地知道该 Bean 何时被创建，何时初始化完成，以及何时被销毁；
+- 而对于 prototype 作用域的 Bean，Spring 只负责创建，当容器创建了 Bean 的实例后，Bean 的实例就交给客户端代码管理，Spring 容器将不再跟踪其生命周期, 即不会执行上面的最后两步
+
+****
+## 5. 手动实例化的对象纳入 Spring 容器管理
+
+通过这种方式获得的 Bean 并不会和上面一样经历完整的 Bean 生命周期的十个步骤
+
+```java
+ // 自己new的对象
+User user = new User();
+System.out.println(user);
+
+// 创建 默认可列表BeanFactory 对象
+DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
+// 注册Bean
+factory.registerSingleton("userBean", user);
+// 从spring容器中获取bean
+User userBean = factory.getBean("userBean", User.class);
+```
+
+- 手动 new 了对象，跳过了实例化、属性注入、Aware 注入等所有生命周期步骤
+- registerSingleton() 仅仅是把这个现成对象放入了容器的单例池中（singletonObjects）
+- Spring 不会再帮忙执行 Aware 接口、初始化方法、BeanPostProcessor、销毁回调等
+
+****
+
 
 
 
