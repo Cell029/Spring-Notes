@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <bean id="emailService" class="com.cell.spring6.factory.factory_method.MessageFactory" factory-method="createEmailService" />
+
+    <!--先创建工厂对象-->
+    <bean id="msgFactory" class="com.cell.spring6.factory.factory_method.MessageFactory" />
+
+    <!-- 再通过工厂方法创建 Bean -->
+    <bean id="emailServiceInstance" factory-bean="msgFactory" factory-method="createEmailServiceByInstance" />
+
+    <!--使用微信-->
+    <bean id="paymentFactory" class="com.cell.spring6.factory.abstract_factory.WeChatFactory" />
+    <bean id="payService" factory-bean="paymentFactory" factory-method="createPayService" />
+    <bean id="refundService" factory-bean="paymentFactory" factory-method="createRefundService" />
+
+    <!--使用支付宝-->
+    <bean id="paymentFactoryAli" class="com.cell.spring6.factory.abstract_factory.AlipayFactory"/>
+    <bean id="payServiceAli" factory-bean="paymentFactoryAli" factory-method="createPayService"/>
+    <bean id="refundServiceAli" factory-bean="paymentFactoryAli" factory-method="createRefundService"/>
+</beans>

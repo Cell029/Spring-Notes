@@ -669,4 +669,420 @@ spring 内置了线程范围的类：org.springframework.context.support.SimpleT
 ```
 
 ****
+# 六. GoF 之工厂模式
+
+GoF 23 种设计模式可分为三大类：
+
+- **创建型**（5个）：解决对象创建问题。
+    - 单例模式
+    - 工厂方法模式
+    - 抽象工厂模式
+    - 建造者模式
+    - 原型模式
+- **结构型**（7个）：一些类或对象组合在一起的经典结构。
+    - 代理模式
+    - 装饰模式
+    - 适配器模式
+    - 组合模式
+    - 享元模式
+    - 外观模式
+    - 桥接模式
+- **行为型**（11个）：解决类或对象之间的交互问题。
+    - 策略模式
+    - 模板方法模式
+    - 责任链模式
+    - 观察者模式
+    - 迭代子模式
+    - 命令模式
+    - 备忘录模式
+    - 状态模式
+    - 访问者模式
+    - 中介者模式
+    - 解释器模式
+
+****
+## 1. 工厂模式的三种形态
+
+- 第一种：简单工厂模式（Simple Factory）：不属于 23 种设计模式之一,简单工厂模式又叫做静态工厂方法模式,是工厂方法模式的一种特殊实现
+- 第二种：工厂方法模式（Factory Method）：是 23 种设计模式之一。
+- 第三种：抽象工厂模式（Abstract Factory）：是 23 种设计模式之一。
+
+****
+## 2. 简单工厂模式
+
+```text
+              +----------------+
+              |   工厂类       |
+              |  SimpleFactory |
+              +--------+-------+
+                       |
+         +-------------+-------------+
+         |                           |
++--------v--------+        +--------v--------+
+|   ProductA      |        |   ProductB      |
++-----------------+        +-----------------+
+```
+
+1. 定义产品接口和实现类
+
+```java
+// 抽象产品角色
+public interface MessageService {
+    void sendMessage(String msg);
+}
+
+// 具体产品角色
+public class EmailService implements MessageService {
+    public void sendMessage(String msg) {
+        System.out.println("发送邮件：" + msg);
+    }
+}
+
+public class SmsService implements MessageService {
+    public void sendMessage(String msg) {
+        System.out.println("发送短信：" + msg);
+    }
+}
+```
+
+2. 创建简单工厂类
+
+```java
+// 通过传递参数决定创建哪个具体产品角色
+public class MessageFactory {
+    public static MessageService createService(String type) {
+        if ("email".equalsIgnoreCase(type)) {
+            return new EmailService();
+        } else if ("sms".equalsIgnoreCase(type)) {
+            return new SmsService();
+        }
+        throw new IllegalArgumentException("不支持的类型：" + type);
+    }
+}
+```
+
+优点:
+
+- 客户端只需传入参数就可以获取对象，无需了解创建细节
+- 对象创建逻辑集中，便于管理和维护
+- 扩展容易，可以通过参数选择不同实现
+
+缺点:
+
+- 不符合开闭原则（新增产品需要修改工厂代码）
+- 所有对象的创建逻辑都集中在一个工厂类里,这会导致工厂类的代码会变得越来越复杂,代码难以维护
+- 不易支持复杂对象的依赖注入和生命周期管理（Spring 正是为了解决这些问题而出现）
+
+****
+## 3. 工厂方法模式
+
+将对象的创建延迟到子类中进行，由子类来决定实例化哪个类，从而达到代码解耦、符合开闭原则的目的,即简单工厂中工厂类自己创建所有对象，而工厂方法把创建交给子类来做
+
+角色组成:
+
+- Product（抽象产品）：定义产品接口
+- ConcreteProduct（具体产品）：实现具体产品类
+- Factory（抽象工厂）：定义创建产品的方法
+- ConcreteFactory（具体工厂）：实现工厂接口，创建具体产品
+
+```lua
+           +----------------------+
+           |   Product            |<------------------+
+           +----------------------+                   |
+           |  <<interface>>       |                   |
+           +----------------------+                   |
+                     ▲                                |
+     +---------------+---------------+                |
+     |                               |                |
++----v-----+                   +-----v----+     +------v------+
+|ProductA  |                   |ProductB  |     |Product...   |
++----------+                   +----------+     +-------------+
+
+           +------------------------+
+           |    Creator             |<------------------+
+           +------------------------+                   |
+           | + factoryMethod():Product|                 |
+           +------------------------+                   |
+                     ▲                                 |
+     +---------------+----------------+                |
+     |                                |                |
++----v----------------+     +---------v----------+   +--v----------------+
+| ConcreteCreatorA    |     | ConcreteCreatorB   |   | ConcreteCreator...|
++---------------------+     +--------------------+   +-------------------+
+| + factoryMethod()   |     | + factoryMethod()  |   | + factoryMethod() |
++---------------------+     +--------------------+   +-------------------+
+
+说明：
+- `Product`：抽象产品，定义产品的接口
+- `ProductA/ProductB`：具体产品，实现 Product 接口
+- `Creator`：抽象工厂类，定义工厂方法 `factoryMethod()`，返回 `Product`
+- `ConcreteCreatorA/B/...`：具体工厂，实现 `factoryMethod()`，返回对应的具体产品
+```
+
+1. 定义接口和实现类
+
+在进行功能扩展的时候，不需要修改之前的源代码, 直接通过新建一个类完成扩展, 显然工厂方法模式符合 OCP 原则
+
+```java
+// 抽象产品
+public interface MessageService {
+    void send(String msg);
+}
+// 具体产品
+public class EmailService implements MessageService {
+    public void send(String msg) {
+        System.out.println("发送邮件：" + msg);
+    }
+}
+```
+
+2. 编写一个工厂类
+
+```java
+// 具体工厂
+public class MessageFactory {
+  // 静态工厂方法
+  public static MessageService createEmailService() {
+    return new EmailService();
+  }
+
+  // 实例工厂方法
+  public MessageService createEmailServiceByInstance() {
+    return new EmailService();
+  }
+}
+```
+
+3. XML 配置使用工厂方法
+
+```xml
+<!--使用静态方法-->
+<bean id="emailService" class="com.example.MessageFactory" factory-method="createEmailService"/>
+
+<!--使用实例方法-->
+<!-- 先创建工厂对象 -->
+<bean id="msgFactory" class="com.example.MessageFactory"/>
+
+<!-- 再通过工厂方法创建 Bean -->
+<bean id="emailService" factory-bean="msgFactory" factory-method="createEmailServiceByInstance"/>
+```
+
+4. 获取并使用 Bean
+
+```java
+// 调用工厂静态方法
+ApplicationContext applicationContext = new ClassPathXmlApplicationContext("factory.xml");
+MessageService messageService = applicationContext.getBean("emailService", MessageService.class);
+messageService.send("Hello Factory Method!");
+
+// 调用工厂实例方法
+MessageService messageService = applicationContext.getBean("emailServiceInstance", MessageService.class);
+messageService.send("Hello Factory Method!");
+```
+
+优点:
+
+- 一个调用者想创建一个对象，只要知道其名称就可以了
+- 扩展性高，如果想增加一个产品，只要扩展一个工厂类就可以
+- 屏蔽产品的具体实现，调用者只关心产品的接口
+
+缺点:
+
+- 每次增加一个产品时，都需要增加一个具体类和对象实现工厂，使得系统中类的个数成倍增加，在一定程度上增加了系统的复杂度，同时也增加了系统具体类的依赖
+
+****
+## 4. 抽象工厂模式
+
+抽象工厂模式是一种创建型设计模式，用于创建一系列相关或依赖的对象，而无需指定它们的具体类。它提供一个接口，用于创建多个“产品族”的对象，而不是单一对象
+
+```lua
+         +----------------------+
+         |  AbstractFactory     |<-------------------+
+         +----------------------+                    |
+         | + createProductA()   |                    |
+         | + createProductB()   |                    |
+         +----------+-----------+                    |
+                    |                                |
+        +-----------+-----------+        +-----------+-----------+
+        |       ConcreteFactory1 |       |       ConcreteFactory2 |
+        +------------------------+       +------------------------+
+        | + createProductA()     |       | + createProductA()     |
+        | + createProductB()     |       | + createProductB()     |
+        +-----------+------------+       +-----------+------------+
+                    |                                |
+   -----------------+----------------  --------------+----------------
+   |                                |  |                               |
++--v----------------+       +-------v---------+         +--------------v------+
+| AbstractProductA  |       | AbstractProductB|         | AbstractProductB    |
++-------------------+       +-----------------+         +---------------------+
+|                   |       |                 |         |                     |
++-------------------+       +-----------------+         +---------------------+
+   |                          |                               |
++--v----------------+     +--v-------------------+     +------v------------------+
+| ProductA1         |     | ProductB1            |     | ProductB2              |
++-------------------+     +----------------------+     +------------------------+
+|                   |     |                      |     |                        |
++-------------------+     +----------------------+     +------------------------+
+
+说明：
+- `AbstractFactory`：抽象工厂，定义创建抽象产品的接口。
+- `ConcreteFactory1/2`：具体工厂，实现抽象工厂接口，创建具体产品。
+- `AbstractProductA/B`：抽象产品，定义产品族中某个产品的接口。
+- `ProductA1/ProductB1/ProductB2`：具体产品，由具体工厂创建。
+```
+
+角色:
+
+- 抽象工厂角色
+- 具体工厂角色
+- 抽象产品角色
+- 具体产品角色
+
+1. 定义抽象产品接口
+
+```java
+public interface PayService {
+    void pay();
+}
+
+public interface RefundService {
+    void refund();
+}
+```
+
+2. 定义产品实现类（支付宝系列）
+
+```java
+public class AlipayPayService implements PayService {
+    public void pay() {
+        System.out.println("使用支付宝支付");
+    }
+}
+
+public class AlipayRefundService implements RefundService {
+    public void refund() {
+        System.out.println("使用支付宝退款");
+    }
+}
+```
+
+3. 定义产品实现类（微信系列）
+
+```java
+public class WeChatPayService implements PayService {
+    public void pay() {
+        System.out.println("使用微信支付");
+    }
+}
+
+public class WeChatRefundService implements RefundService {
+    public void refund() {
+        System.out.println("使用微信退款");
+    }
+}
+```
+
+4. 定义抽象工厂接口
+
+```java
+public interface PaymentFactory {
+    PayService createPayService();
+    RefundService createRefundService();
+}
+```
+
+5. 实现具体工厂类
+
+```java
+public class AlipayFactory implements PaymentFactory {
+    public PayService createPayService() {
+        return new AlipayPayService();
+    }
+
+    public RefundService createRefundService() {
+        return new AlipayRefundService();
+    }
+}
+
+public class WeChatFactory implements PaymentFactory {
+    public PayService createPayService() {
+        return new WeChatPayService();
+    }
+
+    public RefundService createRefundService() {
+        return new WeChatRefundService();
+    }
+}
+```
+
+6. Spring 配置（factory.xml）
+
+通过 Bean 标签创建 AlipayFactory 和 WechatFactory 工厂对象, 然后调用工厂对象中的方法创建 XxxPayService 和 XxxRefundService 对象, 
+当调用 pay() 与 refund() 方法时, 就等于调用了 XxxPayService 和 XxxRefundService 对象的支付与退款方法, 
+所以尽管使用的是 PayService 接口，但底层其实是调用了 WeChatPayService 类的方法，这就是 Java 的多态 + 工厂模式联合发挥的效果
+
+```xml
+<!--使用支付宝-->
+<bean id="paymentFactoryAli" class="com.cell.spring6.factory.abstract_factory.AlipayFactory"/>
+<bean id="payServiceAli" factory-bean="paymentFactoryAli" factory-method="createPayService"/>
+<bean id="refundServiceAli" factory-bean="paymentFactoryAli" factory-method="createRefundService"/>
+
+<!--使用微信-->
+<bean id="paymentFactory" class="com.example.factory.WeChatFactory" />
+<bean id="payService" factory-bean="paymentFactory" factory-method="createPayService" />
+<bean id="refundService" factory-bean="paymentFactory" factory-method="createRefundService" />
+```
+
+```java
+ApplicationContext context = new ClassPathXmlApplicationContext("factory.xml");
+PayService payServiceAli = context.getBean("payServiceAli", PayService.class);
+RefundService refundServiceAli = context.getBean("refundServiceAli", RefundService.class);
+payServiceAli.pay();
+refundServiceAli.refund();
+```
+
+等价于:
+
+```java
+PayService payServiceAli = new AlipayPayService();
+RefundService refundServiceAli = new AlipayRefunService();
+payServiceAli.pay();
+refundServiceAli.refund();
+```
+
+优点:
+
+- 可以保证同一系列的产品对象一起工作，比如一个 UI 界面风格统一
+- 使用者不关心对象如何创建，只依赖工厂接口
+- 新增一个产品系列时，只需新增具体工厂和一套产品实现，不影响现有代码
+- 通过添加类扩展功能，不需修改现有代码, 符合 OCP 原则
+- Spring 就是通过抽象工厂 + 配置注入，实现了 IOC 的可插拔机制
+
+缺点:
+
+- 每增加一个产品族就需要增加多个类和接口（工厂接口、产品接口、多个实现类）
+- 如果要新增一个产品种类，就要改所有的工厂接口和实现类（违反接口隔离）
+- 结构较为复杂, 不适合小型系统
+- 如果接口发生改变，所有工厂和实现类都要动，非常麻烦
+- 如果滥用，会让代码变得难以理解，维护成本上升
+
+****
+## 四. 三种工厂模式的对比
+
+| 模式   | 产品创建控制          | 是否违背开闭原则 | 类结构复杂度 | 使用场景                 |
+| ---- | --------------- | -------- | ------ | -------------------- |
+| 简单工厂 | 一个工厂类+传参         违背         | 低      | 小系统、产品种类较少           |
+| 工厂方法 | 每个产品对应一个工厂类     | 遵守       | 中      | 产品种类经常扩展             |
+| 抽象工厂 | 一个工厂创建多个产品（产品族） | 对“产品种类”扩展不友好 | 高      | 需统一生产一组产品的系统，如跨平台 UI |
+
+简单工厂模式是通过传递参数决定创建哪个对象，结构简单但违反开闭原则；
+工厂方法模式为每个产品提供独立工厂，遵循开闭原则，但类数量较多，扩展略繁琐；
+抽象工厂模式适用于一系列产品的创建，一个工厂接口对应多个产品类型，实现了“产品族”的整体生成，但不适合频繁新增“产品种类”，否则每个工厂类都要改。
+
+****
+
+
+
+
+
 
