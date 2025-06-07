@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--这是使用 Spring 框架的人提供的配置文件-->
+<beans>
+
+    <bean id="user" class="com.cell.myspring.bean.User">
+        <property name="name" value="张三"/>
+        <property name="age" value="30"/>
+    </bean>
+
+    <bean id="userDaoBean" class="com.cell.myspring.bean.UserDao"/>
+
+    <bean id="userService" class="com.cell.myspring.bean.UserService">
+        <property name="userDao" ref="userDaoBean"/>
+    </bean>
+
+</beans>

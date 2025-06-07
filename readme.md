@@ -1368,9 +1368,22 @@ Error creating bean with name 'husbandBean': Requested bean is currently in crea
 通过这种缓存机制让实例化和属性赋值分开执行, 互不干扰, 从而解决循环依赖问题
 
 ****
+# 十. 手写 Spring 框架
 
+第一步: 编写 [ApplicationContext.java](./Demo2-My_Spring/src/main/java/org/myspringframwork/core/ApplicationContext.java) 接口, ApplicationContext 接口中提供一个 getBean() 方法，通过该方法可以获取 Bean 对象
 
+第二步: 编写 [ClassPathXmlApplicationContext.java](./Demo2-My_Spring/src/main/java/org/myspringframwork/core/ClassPathXmlApplicationContext.java) 实现类,
+该类从类路径当中加载 myspring.xml 配置文件
 
+第三步: 确定采用 Map 集合存储 Bean, 在 ClassPathXmlApplicationContext 类中添加 Map<String,Object> 属性, 并且在 ClassPathXmlApplicationContext 类中添加构造方法，
+该构造方法的参数接收 myspring.xml 文件, 同时实现 getBean() 方法
+
+第四步: 解析配置文件实例化所有 Bean, 在 ClassPathXmlApplicationContext 的构造方法中解析配置文件，获取所有 bean 的类名，通过反射机制调用无参数构造方法创建 Bean。
+并将 Bean 对象存放到 Map 集合中
+
+第五步: 给 Bean 的属性赋值, 通过反射机制调用 set 方法
+
+****
 
 
 

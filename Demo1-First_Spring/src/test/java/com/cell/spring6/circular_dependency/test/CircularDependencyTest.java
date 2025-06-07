@@ -6,6 +6,7 @@ import org.junit.Test;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
+
 public class CircularDependencyTest {
     @Test
     public void test1() {
@@ -24,4 +25,5 @@ public class CircularDependencyTest {
         System.out.println(hBean);
         System.out.println(wBean);
     }
+    
 }
