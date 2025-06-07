@@ -1579,5 +1579,59 @@ System.out.println(userInfo);
 ```
 
 ****
+# 十二. JdbcTemplate
+
+JdbcTemplate 是对原生 JDBC 的封装：
+
+- 自动管理资源（连接、语句、结果集）
+- 自动转换 SQL 异常为运行时异常
+- 支持参数绑定、查询、更新、批处理等操作
+
+## 1. 环境配置
+
+创建数据源并设置 JdbcTemplate:
+
+[MyDataSource.java](./Demo3-annotation/src/main/java/com/cell/jdbc_template/datasource/MyDataSource.java)
+
+```xml
+<bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+    <property name="dataSource" ref="myDataSource"/>
+</bean>
+
+<bean id="myDataSource" class="com.cell.jdbc_template.datasource.MyDataSource">
+    <property name="driver" value="com.mysql.cj.jdbc.Driver"/>
+    <property name="url" value="jdbc:mysql://localhost:3306/spring-notes"/>
+    <property name="username" value="root"/>
+    <property name="password" value="123"/>
+</bean>
+```
+
+****
+## 2. 新增
+
+[testInsert](./Demo3-annotation/src/test/java/com/cell/test/JdbcTemplateTest.java)
+
+update方法有两个参数：
+
+- 第一个参数：要执行的SQL语句（SQL语句中可能会有占位符 ? ）
+- 第二个参数：可变长参数，参数的个数可以是0个，也可以是多个, 一般是SQL语句中有几个问号，则对应几个参数
+
+****
+## 3. 查询
+
+查询一条记录:
+
+queryForObject 方法三个参数：
+
+- 第一个参数：sql 语句
+- 第二个参数：Bean 属性值和数据库记录行的映射对象, 在构造方法中指定映射的对象类型
+- 第三个参数：可变长参数，给 sql 语句的占位符问号传值
+
+查询多条记录:
+
+使用 query 方法
+
+****
+
 
 
