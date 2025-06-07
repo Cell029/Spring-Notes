@@ -1082,6 +1082,8 @@ refundServiceAli.refund();
 ****
 # 七. Bean 的获取方式
 
+通过 Spring 来获取 Bean 对象就不能再使用 new 的方式, 这样会让 Bean 对象失去被 Spring 管理的资格, 导致属性的注入出现问题
+
 ## 1. 通过构造方法获取
 
 默认情况下，会调用Bean的无参数构造方法, 在解析 XML 文件时则会把所有的 Bean 全部实例化:
@@ -1384,8 +1386,198 @@ Error creating bean with name 'husbandBean': Requested bean is currently in crea
 第五步: 给 Bean 的属性赋值, 通过反射机制调用 set 方法
 
 ****
+# 十一. Spring IoC 注解式开发
 
+## 1. 利用反射获取注解
 
+[获取注解](./Demo3-annotation/src/main/java/com/cell/test/Test.java)
 
+****
+## 2. 声明 Bean 的注解
+
+负责声明Bean的注解，常见的包括四个, 其余的都是 Component 的别名, 都能都一样, 主要是用来提高可读性：
+
+- @Component
+- @Controller: 用在 Controller 层
+- @Service: 用在 Service 层
+- @Repository: 用在 Dao 层
+
+****
+## 3. Spring 注解的使用
+
+- 第一步：加入aop的依赖
+
+添加 spring-context 依赖之后，会关联加入 aop 的依赖
+
+- 第二步:在配置文件中添加 context 命名空间
+
+```xml
+xmlns:context="http://www.springframework.org/schema/context"
+
+http://www.springframework.org/schema/context
+https://www.springframework.org/schema/context/spring-context.xsd
+```
+
+- 第三步：在配置文件中指定要扫描的包
+
+```xml
+<context:component-scan base-package="com.cell.annotation.bean"/>
+```
+
+- 第四步：在 Bean 类上使用注解
+
+当 @Component 里面没有定义属性名的话就会将类名的首字母小写作为 Bean 的名称
+
+多包扫描:
+
+- 在配置文件中指定多个包，用逗号隔开
+
+```xml
+<context:component-scan base-package="com.cell.annotation.bean,com.cell.annotation.bean2"/>
+```
+
+- 指定共同的父包
+
+```xml
+<context:component-scan base-package="com.cell.annotation"/>
+```
+
+****
+## 4. 选择性实例化 Bean
+
+默认情况下，使用 @Component、@Service、@Repository、@Controller 注解的类，只要在 ComponentScan 扫描路径内，Spring 就会把它们全部实例化为 Bean. 
+
+- 第一种:可以通过修改 use-default-filters 来选择不再使用 Spring 默认的规则, 由自己手动选择需要实例化的 Bean
+
+```xml
+<context:component-scan base-package="com.cell.annotation.bean" use-default-filters="false">
+    <context:include-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+</context:component-scan>
+```
+
+use-default-filters="true" 表示：使用 spring 默认的规则，只要有 Component、Controller、Service、Repository 中的任意一个注解标注，则进行实例化
+use-default-filters="false" 表示：不再 spring 默认实例化规则，即使有 Component、Controller、Service、Repository 这些注解标注，也不再实例化
+`<context:include-filter type="annotation" expression="org.springframework.stereotype.Controller"/>` 表示只有 Controller 进行实例化
+
+- 第二种:可以将 use-default-filters 设置为 true（不写就是true），并且采用 exclude-filter 方式排出哪些注解标注的 Bean 不参与实例化
+
+```xml
+<context:component-scan base-package="com.cell.annotation.bean">
+  <context:exclude-filter type="annotation" expression="org.springframework.stereotype.Repository"/>
+  <context:exclude-filter type="annotation" expression="org.springframework.stereotype.Service"/>
+  <context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+</context:component-scan>
+```
+
+****
+## 5. 负责注入的注解
+
+给 Bean 属性赋值需要用到这些注解：
+
+- @Value
+- @Autowired
+- @Qualifier
+- @Resource
+
+### 5.1 @Value
+
+当属性的类型是简单类型时，可以使用 @Value 注解进行注入, 它可以将外部配置的值注入到字段、方法、构造器参数中, 当没有提供 setter 方法时也可也完成注入
+
+****
+### 5.2 @Autowired 与 @Qualifier
+
+@Autowired 和 @Qualifier 主要用于实现自动装配 Bean, 它们常一起配合使用，用于控制 Spring 容器如何选择和注入所需的 Bean
+
+@Autowired:
+
+单独使用 @Autowired 注解时，默认是根据类型进行装配。Spring 会从容器中查找与字段类型匹配的 Bean, 无需提供 setter 方法。
+如果找不到匹配的 Bean 或者有多个 Bean，则会抛出异常, 若该类没有被 Spring 管理（即没有被注册为 Bean），
+那么该类型的 Bean 根本不存在，注入失败并会抛出异常。只有在设置 @Autowired(required = false) 或使用 Optional<> 作为引用类型时，
+Spring 才会在找不到 Bean 的情况下不报错
+
+```java
+@Autowired
+private UserService userService;
+```
+
+这个注解可以使用在字段, 构造方法, 以及方法上, 但都必须有对应的参数才行, 当构造方法只有一个时, @Autowired 可以省略
+
+```java
+@Service
+public class UserService {
+    private UserDao userDao;
+    public UserService(UserDao userDao) {
+        this.userDao = userDao;
+    }
+    public void save(){
+        userDao.insert();
+    }
+}
+```
+
+@Qualifier:
+
+当一个接口有多个实现类，Spring 不知道注入哪个时，@Qualifier 用来指定 Bean 的名字，帮助 @Autowired 精确注入
+
+```java
+@Component("wechatService")
+public class WeChatService implements MessageService {}
+
+@Component("emailService")
+public class EmailService implements MessageService {}
+```
+
+```java
+@Component
+public class MessageSender {
+
+    @Autowired
+    @Qualifier("emailService")
+    private MessageService messageService;
+}
+```
+
+****
+### 5.3 @Resource 
+
+@Resource 注解属于 JDK 扩展包，所以不在 JDK 当中，需要额外引入以下依赖(如果是JDK8的话不需要额外引入依赖, 高于JDK11或低于JDK8需要引入以下依赖), 且 Spring 6 及以上版本基于 Jakarta EE 9+，注解包从 javax.annotation 改为 jakarta.annotation:
+
+```xml
+<dependency>
+  <groupId>jakarta.annotation</groupId>
+  <artifactId>jakarta.annotation-api</artifactId>
+  <version>2.1.1</version>
+</dependency>
+```
+
+@Resource 用于按照名称优先的策略注入 Spring 容器中的 Bean (只能作用在字段与 setter 方法上), 如果没有指定名称, 就会按照当前字段的属性名查找 Bean , 如果没找到就根据类型查找
+
+```java
+@Resource(name = "userService") // 按名称查找
+private UserService service;
+
+@Resource(type = OrderService.class) // 按类型查找（如果有多个，仍然会报错）
+private OrderService orderService;
+```
+
+****
+## 6. 全注解式开发
+
+所谓的全注解开发就是不再使用 spring 配置文件了, 而是写一个配置类来代替配置文件, 编写测试程序就不再 new ClassPathXmlApplicationContext()对象了
+
+```java
+@Configuration
+@ComponentScan({"com.cell.annotation"})
+public class AppConfig {}
+```
+
+```java
+AnnotationConfigApplicationContext annotationConfigApplicationContext = new AnnotationConfigApplicationContext(AppConfig.class);
+AppController appController = annotationConfigApplicationContext.getBean("appController", AppController.class);
+String userInfo = appController.getUserInfo();
+System.out.println(userInfo);
+```
+
+****
 
 
