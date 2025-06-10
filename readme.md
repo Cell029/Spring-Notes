@@ -1656,7 +1656,7 @@ queryForObject 方法三个参数：
 当接口较多时容易造成类爆炸 [OrderServiceProxy.java](./Demo3-annotation/src/main/java/com/cell/proxy/static_proxy/service/OrderServiceProxy.java)
 
 ****
-## 2. 动态代理
+## 2. JDK 动态代理
 
 > 动态代理是指在运行时动态创建代理类，并通过这个代理类来实现对目标对象方法的增强，而不需要手写代理类代码,与静态代理相比，动态代理不需要为每个目标类编写单独的代理类，大大提高了代码复用性和灵活性
 
@@ -1668,6 +1668,47 @@ OrderService proxyObj = (OrderService) Proxy.newProxyInstance(target.getClass().
 
 通过这种方法,不管有多少个接口需要实现,只需要在 invoke 方法中添加增强代码即可,这样每次调用实现类的方法时都会自动加上这些代码
 
+JDK动态代理适用场景：
+
+- 目标对象已经实现了接口 
+- 需要轻量级代理解决方案
+- 需要遵循Java标准API的场景
+
 ****
+## 3. CGLIB 动态代理
+
+[CGLIB](./Demo3-annotation/src/main/java/com/cell/proxy/cglib_proxy)底层采用继承的方式实现，所以子类被创建时会调用父类的构造器(使用无参构造器)，
+并且被代理的目标类不能使用final修饰
+
+使用CGLIB，需要引入它的依赖：
+
+```xml
+<dependency>
+  <groupId>cglib</groupId>
+  <artifactId>cglib</artifactId>
+  <version>3.3.0</version>
+</dependency>
+```
+
+```text
+目标类（TargetClass）
+        ↓
+生成子类（ProxyClass extends TargetClass）
+        ↓
+子类方法重写 + 增强逻辑（如执行前/后拦截）
+        ↓
+通过代理子类对象调用方法
+```
+
+CGLIB代理适用场景：
+
+- 目标对象没有实现任何接口 
+- 需要代理普通类的方法 
+- 对性能要求较高的场景 
+- 需要代理非final类和方法的场景
+
+****
+
+
 
 

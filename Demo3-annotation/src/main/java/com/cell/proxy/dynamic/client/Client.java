@@ -3,6 +3,7 @@ package com.cell.proxy.dynamic.client;
 import com.cell.proxy.dynamic.service.OrderService;
 import com.cell.proxy.dynamic.service.OrderServiceImpl;
 import com.cell.proxy.dynamic.service.TimeInvocationHandler;
+import com.cell.proxy.dynamic.utils.ProxyUtil;
 
 import java.lang.reflect.Proxy;
 
@@ -21,7 +22,8 @@ public class Client {
          *   第三个参数:InvocationHandler h
          *       通过这个接口传递需要增强的程序, 所以要在这个接口中编写代码, 所以得写这个接口的实现类
          * */
-        OrderService proxyObj = (OrderService) Proxy.newProxyInstance(target.getClass().getClassLoader(), target.getClass().getInterfaces(), new TimeInvocationHandler(target));
+        // OrderService proxyObj = (OrderService) Proxy.newProxyInstance(target.getClass().getClassLoader(), target.getClass().getInterfaces(), new TimeInvocationHandler(target));
+        OrderService proxyObj = (OrderService) ProxyUtil.newProxyInstance(target);
         // 调用代理对象的代理方法
         proxyObj.generate(); // 执行时会调用 invoke 方法
         proxyObj.modify();
