@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="
+           http://www.springframework.org/schema/beans
+           https://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.springframework.org/schema/aop
+           https://www.springframework.org/schema/aop/spring-aop.xsd">
+
+    <!-- 定义目标服务 bean -->
+    <bean id="userService" class="com.cell.aopXml.service.UserService" />
+    <!-- 定义切面 bean -->
+    <bean id="logAspect" class="com.cell.aopXml.service.LogAspect" />
+    <!--开启自动代理-->
+    <aop:aspectj-autoproxy proxy-target-class="true"/>
+
+    <!-- AOP 配置 -->
+    <aop:config>
+        <!-- 切入点定义 -->
+        <aop:pointcut id="userServicePointcut" expression="execution(* com.cell.aopXml.service.UserService.*(..))" />
+        <!-- 切面定义，引用切面 bean -->
+        <aop:aspect id="userServiceAspect" ref="logAspect">
+            <!-- 前置通知 -->
+            <aop:before pointcut-ref="userServicePointcut" method="beforeLog" />
+            <!-- 后置通知 -->
+            <aop:after-returning pointcut-ref="userServicePointcut" method="afterReturningLog" returning="result" />
+            <!-- 环绕通知 -->
+            <aop:around pointcut-ref="userServicePointcut" method="aroundLog" />
+            <!-- 最终通知 -->
+            <aop:after pointcut-ref="userServicePointcut" method="afterLog" />
+            <!-- 异常通知 -->
+            <aop:after-throwing pointcut-ref="userServicePointcut" method="afterThrowingLog" throwing="ex" />
+        </aop:aspect>
+    </aop:config>
+
+</beans>

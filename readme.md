@@ -1708,7 +1708,496 @@ CGLIB代理适用场景：
 - 需要代理非final类和方法的场景
 
 ****
+# 十四. 面向切面编程 AOP
 
+AOP 面向切面编程，它是一种编程技术，是对面向对象编程（OOP）的补充与延申，通过动态代理来实现（JDK动态代理 + CGLIB动态代理技术），
+Spring在这两种动态代理中灵活切换，如果是代理接口，会默认使用JDK动态代理，如果要代理某个类，而这个类没有实现接口，就会切换使用CGLIB，
+也可也强制通过一些配置让Spring只使用CGLIB
+
+## 1. AOP 介绍
+
+一般一个系统当中都会有一些系统服务，例如：日志、事务管理、安全等,这些系统服务被称为：**交叉业务**，
+这些**交叉业务**几乎是通用的，不管是做银行账户转账，还是删除用户数据，日志、事务管理、安全等功能都是需要做的。
+如果在每一个业务处理过程当中，都掺杂这些交叉业务代码进去的话，存在两方面问题：
+
+- 第一：交叉业务代码在多个业务流程中反复出现，显然这个交叉业务代码没有得到复用，并且修改这些交叉业务代码的话又需要修改多处
+- 第二：程序员无法专注核心业务代码的编写，在编写核心业务代码的同时还需要处理这些交叉业务
+
+而使用 AOP 就能很好的解决这些问题，将与核心业务无关的代码独立的抽取出来，形成一个独立的组件，然后以横向交叉的方式应用到业务流程当中
+
+所以AOP的优点是：
+
+- 代码复用性增强
+- 代码易维护
+- 使开发者更关注业务逻辑
+
+****
+## 2. AOP 的七大术语
+
+```java
+public class UserService {
+    public void do1() {
+        System.out.println("do 1");
+    }
+
+    public void do2() {
+        System.out.println("do 2");
+    }
+
+    public void do3() {
+        System.out.println("do 3");
+    }
+
+    public void do4() {
+        System.out.println("do 4");
+    }
+
+    public void do5() {
+        System.out.println("do 5");
+    }
+
+    // 核心业务方法
+    public void service() {
+        try {
+            // Joinpoint连接点
+            do1(); // Pointcut 切点
+            // Joinpoint连接点
+            do2();// Pointcut 切点
+            // Joinpoint连接点
+            do3();// Pointcut 切点
+            // Joinpoint连接点
+            do5();// Pointcut 切点
+            // Joinpoint连接点
+        } catch (Excrption e) {
+            // Joinpoint连接点
+        } finally {
+          // Joinpoint连接点
+        }
+
+    }
+}
+```
+
+- 连接点(Joinpoint)
+> 在程序的整个执行流程中，可以织入切面的位置，也就是方法的执行前后，异常抛出之后等位置,所以连接点描述的是位置
+
+- 切点(Pointcut)
+> 在程序执行流程中，真正织入切面的方法（一个切点对应多个连接点）
+
+- 通知(Advice)
+> 通知又叫增强，就是具体要织入的增强代码，例如：日志代码、统计时常的代码，所以通知描述的是代码，通知包括前置通知（切点前）、后置通知（切点后）、环绕通知（切点前后都有）、异常通知（catch 中）、最终通知（finally 中）
+
+- 切面(Aspect)
+> 切点 + 通知就是切面
+
+- 织入(Weaving)
+> 把通知应用到目标对象上的过程
+
+- 代理对象(Proxy)
+> 一个目标对象被织入通知后产生的新对象
+
+- 目标对象(Target)
+> 被织入通知的对象
+
+****
+## 3. 切点表达式
+
+切点表达式用来定义通知（Advice）往哪些方法上切入，切入点表达式语法格式：
+
+```java
+execution([访问控制权限修饰符] 返回值类型 [全限定类名]方法名(形式参数列表) [异常])
+```
+
+访问控制权限修饰符（可选项）：
+
+- 没写，就是4个权限都包括
+- 写public就表示只包括公开的方法
+
+返回值类型（必填项）：
+
+- `*` 表示返回值类型任意
+
+全限定类名（可选项）：
+
+- 两个点“..”代表当前包以及子包下的所有类
+- 省略时表示所有的类
+
+方法名（必填项）：
+
+- `*`表示所有方法
+- `set*` 表示所有的set方法
+
+形式参数列表（必填项）：
+
+- () 表示没有参数的方法
+- (..) 参数类型和个数随意的方法
+- (*) 只有一个参数的方法
+- (*, String) 第一个参数类型随意，第二个参数是String的
+
+异常（可选项）：
+
+- 省略时表示任意异常类型
+
+例如：
+
+```java
+// service 包下的所有类的以 delete 开头的所有public方法（方法参数随意）
+execution(public * com.cell.spring.service.*.delete*(..))
+
+// spring 包下的所有类（不包括子包）的所有的方法
+execution(* com.cell.spring..*(..))
+
+// 所有类的所有方法
+execution(* *(..))
+```
+
+****
+## 4. 使用 Spring 的 AOP
+
+Spring对AOP的实现包括以下3种方式：
+
+- 第一种方式：Spring框架结合AspectJ框架实现的AOP，基于注解方式
+- 第二种方式：Spring框架结合AspectJ框架实现的AOP，基于XML方式
+- 第三种方式：Spring框架自己实现的AOP，基于XML配置方式
+
+使用Spring+AspectJ的AOP需要引入相关依赖以及配置命名空间：
+
+```xml
+<!-- Spring AOP 核心依赖 -->
+<dependency>
+    <groupId>org.springframework</groupId>
+    <artifactId>spring-aop</artifactId>
+    <version>6.1.14</version>
+</dependency>
+
+<!-- AspectJ 运行时支持 -->
+<dependency>
+    <groupId>org.aspectj</groupId>
+    <artifactId>aspectjweaver</artifactId>
+    <version>1.9.8</version>
+</dependency>
+
+<!-- 如果使用注解配置 AOP，还需要添加 spring-context -->
+<dependency>
+    <groupId>org.springframework</groupId>
+    <artifactId>spring-context</artifactId>
+    <version>6.1.14</version>
+</dependency>
+```
+
+```xml
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+                           http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+                           http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd">
+```
+
+实现步骤：
+
+第一步：定义目标类以及目标方法[AOP](./Demo3-annotation/src/main/java/com/cell/aop/service)
+
+```java
+// 目标类
+public class OrderService {
+    // 目标方法
+    public void generate(){
+        System.out.println("订单已生成！");
+    }
+}
+```
+
+第二步：定义切面类
+
+```java
+// 切面类
+@Aspect
+public class MyAspect {
+}
+```
+
+第三步：目标类和切面类都纳入 Spring 容器管理，也就是在对上面两个类添加 @Component 注解
+
+第四步：在配置文件中添加组建扫描
+
+```xml
+<context:component-scan base-package="com.cell.aop.service"/>
+```
+
+第五步：在切面类中添加通知
+
+```java
+// 这就是需要增强的代码（通知）
+public void advice(){
+    System.out.println("我是一个通知");
+}
+```
+
+第六步：在切面类的通知上添加切点表达式
+
+```java
+// 切点表达式，OrderService 类中的所有方法，注解 @Before 表示前置通知
+@Before("execution(* com.cell.aop.service.OrderService.*(..))")
+```
+
+第七步：在配置文件中启用自动代理
+
+开启自动代理之后，凡是带有@Aspect注解的bean都会生成代理对象。
+proxy-target-class="true" 表示采用cglib动态代理。
+proxy-target-class="false" 表示采用jdk动态代理。默认值是false。即使写成false，当没有接口的时候，也会自动选择cglib生成代理类。
+
+```xml
+<aop:aspectj-autoproxy proxy-target-class="true"/>
+```
+
+****
+## 5. 通知类型的执行顺序
+
+通知类型包括：
+
+前置通知：@Before 目标方法执行之前的通知，通常用来权限检查、日志记录等，也可也传入一个 JoinPoint 参数（非必需）：
+
+```text
+getSignature()：获取目标方法的签名信息（如方法名、参数类型）
+getArgs()：获取目标方法的参数列表
+getTarget()：获取目标对象的引用
+```
+
+后置通知：@AfterReturning 目标方法执行之后的通知，通常用于返回值处理或资源释放，也可也传入 JoinPoint ，与上述一样，不过可以在切点表达式中添加 returning 接收返回值：
+
+```java
+// returning = "result"：将目标方法的返回值绑定到通知方法的 result 参数
+@AfterReturning(pointcut = "execution(* com.cell.aop.service.OrderService.getOrder(..))", returning = "result")
+public void logOrderResult(JoinPoint joinPoint, Object result) {
+    System.out.println("方法 " + joinPoint.getSignature().getName() + " 返回: " + result);
+    if (result instanceof Order) {
+        Order order = (Order) result;
+        System.out.println("订单ID: " + order.getId());
+    }
+}
+```
+
+环绕通知：@Around 目标方法之前添加通知，同时目标方法执行之后添加通知，它可以
+
+- 在目标方法执行前后添加自定义逻辑
+- 决定目标方法是否执行（甚至可以替代目标方法）
+- 修改目标方法的返回值
+- 捕获并处理目标方法抛出的异常
+
+在环绕通知的方法中，必须传入一个 ProceedingJoinPoint 类型的参数，它是环绕通知特有的，它提供了一些方法：
+
+```text
+proceed()：调用目标方法，并且必须在环绕通知中调用此方法，否则目标方法不会执行，也可以调用 proceed(Object[] args) 重载方法来修改目标方法的参数
+getSignature()：获取目标方法的签名信息（如方法名、参数类型）
+getArgs()：获取目标方法的参数列表
+```
+
+异常通知：@AfterThrowing 发生异常之后执行的通知，它可以接收 JoinPoint 对象或者绑定异常对象，通过 throwing 属性绑定目标方法抛出的异常：
+
+```java
+// throwing = "ex"：将目标方法抛出的异常绑定到通知方法的 ex 参数
+@AfterThrowing(pointcut = "execution(* com.cell.aop.service.OrderService.*(..))", throwing = "ex")
+public void logException(JoinPoint joinPoint, Exception ex) {
+    System.out.println("方法 " + joinPoint.getSignature().getName() + " 抛出异常: " + ex.getMessage());
+}
+```
+
+最终通知：@After 会在目标方法无论以何种方式结束（正常返回或抛出异常）后被触发，不过无法手动将 @After 放在 finally 中，
+只需使用注解标注方法即可，因为 Spring AOP 在底层将其实现逻辑放在了类似 finally 块的位置，
+并且框架自动生成的外部 finally 块（包含 @After 通知）后执行，确保最终通知始终触发
+
+各种通知的执行顺序：
+
+通过执行代码可以看到它们的执行顺序，当发生异常之后，后置通知和环绕通知的结束部分不会执行，但最终通知会执行，因为它在 finally 语句块中还可以执行
+
+```text
+// 未发生异常
+环绕通知开始
+前置通知
+订单已生成！
+方法 generate 返回: null
+后置通知
+最终通知
+环绕通知结束
+
+// 发生异常
+环绕通知开始
+前置通知
+订单已生成！
+方法 generate 抛出异常: 模拟异常发生
+异常通知
+最终通知
+```
+
+****
+## 6. 切面的先后顺序
+
+业务流程当中不一定只有一个切面，可能有的切面控制事务，有的记录日志，有的进行安全控制，如果多个切面的话，顺序可以使用@Order注解来标识切面类，
+为@Order注解的value指定一个整数型的数字，数字越小，优先级越高
+
+```text
+FirstAspect环绕通知开始
+FirstAspect前置通知
+环绕通知开始
+前置通知
+订单已生成！
+方法 generate 返回: null
+后置通知
+最终通知
+环绕通知结束
+FirstAspect后置通知
+FirstAspect最终通知
+FirstAspect环绕通知结束
+```
+
+****
+## 7. 切点表达式的优化
+
+```java
+@Around("execution(* com.cell.aop.service.OrderService.*(..))")
+public void aroundAdvice(ProceedingJoinPoint proceedingJoinPoint) throws Throwable {
+    System.out.println("环绕通知开始");
+    // 执行目标方法。
+    proceedingJoinPoint.proceed();
+    System.out.println("环绕通知结束");
+}
+....
+```
+
+上面这种切点表达式重复写了很多次，如果要修改切点表达式就需要修改每个通知的，太麻烦了，所以可以将切点表达式单独的定义出来，在需要的位置引入即可：
+
+```java
+// 定义可复用的切点表达式
+@Pointcut("execution(* com.cell.aop.service.OrderService.*(..))")
+public void orderServiceMethods() {} // 方法体为空，仅作为切点的标识
+
+// 然后其他通知注释直接引用切点即可
+@Around("orderServiceMethods()")
+public void aroundAdvice(ProceedingJoinPoint proceedingJoinPoint) throws Throwable {
+  System.out.println("环绕通知开始");
+  // 执行目标方法。
+  proceedingJoinPoint.proceed();
+  System.out.println("环绕通知结束");
+}
+
+// 也可也使用混合的方式
+@Pointcut("execution(* com.cell.aop.service.OrderService.*(..))")
+public void orderService() {}
+
+@Pointcut("execution(* com.cell.aop.service.UserService.*(..))")
+public void userService() {}
+
+// 组合切点：所有服务
+@Pointcut("orderService() || userService()")
+public void allServices() {}
+
+// 应用于所有服务的通知
+@Before("allServices()")
+public void logServiceAccess(JoinPoint joinPoint) {
+  System.out.println("访问方法：" + joinPoint.getSignature().getName());
+}
+```
+
+****
+## 8. 全注解式开发 AOP
+
+就是编写一个类，在这个类上面使用大量注解来代替配置文件，如下：
+
+```java
+@Configuration
+@ComponentScan("com.cell.aop.service")
+@EnableAspectJAutoProxy(proxyTargetClass = true)
+public class AopConfiguration {
+}
+```
+
+使用：
+
+```java
+// 没使用注解开发
+ApplicationContext applicationContext = new ClassPathXmlApplicationContext("aop.xml");
+OrderService orderService = applicationContext.getBean("orderService", OrderService.class);
+orderService.generate();
+
+// 使用注解开发
+ApplicationContext applicationContext = new AnnotationConfigApplicationContext(AopConfiguration.class);
+OrderService orderService = applicationContext.getBean("orderService", OrderService.class);
+orderService.generate();
+```
+
+****
+## 9. 基于 XML 配置方式的 AOP
+
+[AOPXml](./Demo3-annotation/src/main/java/com/cell/aopXml/service)
+
+第一步：切面配置，引入命名空间：
+
+```xml
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="
+           http://www.springframework.org/schema/beans
+           https://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.springframework.org/schema/aop
+           https://www.springframework.org/schema/aop/spring-aop.xsd">
+```
+
+切面是横切逻辑的封装，包含切入点和通知定义：
+
+```xml
+<aop:aspect id="logAspect" ref="logAspectBean">
+    <!-- 切入点和通知定义 -->
+</aop:aspect>
+```
+
+第二步：切入点（Pointcut）配置
+
+切入点定义了切面逻辑作用的目标方法：
+
+```xml
+<aop:pointcut id="servicePointcut" expression="execution(* com.cell.aopXml.service.*.*(..))" />
+```
+
+例如：环绕通知
+
+```xml
+<aop:aspect id="logAspect" ref="logAspectBean">
+    <aop:pointcut id="servicePointcut" expression="execution(* com.cell.aopXml.service.*.*(..))" />
+    <aop:around pointcut-ref="servicePointcut" method="logAround"/>
+</aop:aspect>
+```
+
+****
+## 10. AOP 的事务处理
+
+AOP 通过动态代理（如 JDK 动态代理、CGLIB 代理）在目标方法执行前后插入事务相关逻辑，[核心流程](./Demo3-annotation/src/main/java/com/cell/aop/transaction_service/TransactionAspect.java)如下：
+
+1. 事务开启：在方法执行前创建事务，设置事务属性（隔离级别、传播行为等）
+2. 业务逻辑执行：调用目标方法，执行具体业务操作。
+3. 事务提交/回滚：根据执行结果决定提交或回滚事务
+4. 资源释放：关闭数据库连接等资源
+
+****
+## 11. AOP 的安全日志
+
+AOP 同过动态代理在目标方法执行前或后插入[日志记录](./Demo3-annotation/src/main/java/com/cell/aop/security_service/SecurityAspect.java)
+
+****
+## 12. AOP 与动态代理的关系
+
+1、技术本质：AOP 是编程范式，动态代理是实现手段
+
+- AOP：是一种编程范式，核心目标是将横切关注点与业务逻辑分离，解决 OOP（面向对象编程）无法纵向解决的代码复用问题
+- 动态代理：是一种设计模式，核心机制是运行时创建代理对象拦截方法调用，属于实现 AOP 的具体技术手段之一
+
+2、AOP 对动态代理的封装体现
+
+虽然 AOP != 动态代理，但Spring AOP 对动态代理进行了高级封装，通过注解（如@Aspect、@Pointcut）或 XML 配置声明切面就不再需要手动编写代理类
+
+****
 
 
 
