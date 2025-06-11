@@ -2389,6 +2389,24 @@ public void saveLog() {
 整合后，测试类就可以变成 Spring 容器管理的 Bean，支持 Spring 的各种操作，并且直接通过注解进行依赖注入可以省去获取 Bean 的步骤
 
 ****
+# 十七. Spring 集成 MyBatis
+
+这种方式让两种框架的优点得以发挥，Spring 能连接数据库，但对 SQL 操作支持不强；MyBatis 擅长写 SQL，但层与层之间的耦合度较高；而两者结合刚好优势互补
+
+- 第一步：编写[mybatis-config.xml](./Demo4-web/src/main/resources/mybatis-config.xml)配置文件
+
+该配置文件可以不写，因为和 Spring 整合后大部分的配置可以转移到spring配置文件中，不过如果有mybatis相关的系统级配置还是需要写的，例如：全局参数（如延迟加载、驼峰命名映射等）
+
+- 第二步：编写[spring](./Demo4-web/src/main/resources/Spring-MyBatis.xml)配置文件
+
+这里需要完成spring基础的配置，例如：组件扫描，配置数据源，添加事务管理等；还需要完成mybatis的配置，通过这个来构建SqlSessionFactory，获取数据库的连接对象
+
+- 第三步：编写程序
+
+通过 Spring 配置文件或注解机制，Spring 容器会负责创建并管理 Service 层的 Bean，通过容器获取这个 Bean 并调用其方法时，Spring 会将 DAO 层（也就是 MyBatis 的 Mapper 接口）自动注入到 Service 层中，
+最终这些结果通过对象映射，返回给 Service 层，再返回给调用方（如 Controller 或 main 方法）
+
+****
 
 
 
