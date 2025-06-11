@@ -2362,8 +2362,33 @@ public void saveLog() {
 注意：使用这种方式不能再在 Service 类上添加 @Transactional 注解
 
 ****
+# 十六. Spring6 整合 JUnit5
 
+- 第一步：引入依赖
 
+```xml
+<!-- JUnit5 相关 -->
+<dependency>
+    <groupId>org.junit.jupiter</groupId>
+    <artifactId>junit-jupiter</artifactId>
+    <version>5.10.2</version>
+    <scope>test</scope>
+</dependency>
+
+<!-- Spring Test 模块 -->
+<dependency>
+    <groupId>org.springframework</groupId>
+    <artifactId>spring-test</artifactId>
+    <version>6.1.14</version>
+    <scope>test</scope>
+</dependency>
+```
+
+- 第二步：创建[测试类](./)
+
+整合后，测试类就可以变成 Spring 容器管理的 Bean，支持 Spring 的各种操作，并且直接通过注解进行依赖注入可以省去获取 Bean 的步骤
+
+****
 
 
 
