@@ -2198,6 +2198,177 @@ AOP 同过动态代理在目标方法执行前或后插入[日志记录](./Demo3
 虽然 AOP != 动态代理，但Spring AOP 对动态代理进行了高级封装，通过注解（如@Aspect、@Pointcut）或 XML 配置声明切面就不再需要手动编写代理类
 
 ****
+# 十五. Spring 对事务的支持
+
+Spring实现事务的两种方式：
+
+- 编程式事务
+1. 通过编写代码的方式来实现事务的管理
+- 声明式事务
+1. 基于注解方式 
+2. 基于XML配置方式
+
+## 声明式事务管理
+
+> 声明式事务是一种基于 AOP（面向切面编程） 的事务管理方式，只需在方法上加上注解或在 XML 配置中声明，即可实现事务控制，无需自己写 commit、rollback 等逻辑
+
+## 编程式事务管理
+
+编程式事务管理是通过 Java 代码手动控制事务的开启、提交和回滚
+
+## 1. 基于注解实现
+
+- 第一步：在spring配置文件中配置事务管理器
+
+```xml
+<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+  <property name="dataSource" ref="dataSource"/>
+</bean>
+```
+
+- 第二步：在spring配置文件中引入tx命名空间
+
+```xml
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+                           http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+                           http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd">
+```
+
+- 第三步：在spring配置文件中配置“事务注解驱动器”，开启注解的方式控制事务
+
+```xml
+<tx:annotation-driven transaction-manager="transactionManager"/>
+```
+
+- 第四步：在service类上或方法上添加@Transactional注解，在类上添加该注解，该类中所有的方法都有事务；在某个方法上添加该注解，表示只有这个方法使用事务
+
+****
+## 2. @Transactional 的属性
+
+- propagation：事务的传播行为
+- isolation：事务的隔离级别
+- timeout：事务超时时间（单位：秒）
+- readOnly：是否为只读事务
+- rollbackFor / rollbackForClassName：哪些异常会触发回滚、
+- noRollbackFor / noRollbackForClassName：哪些异常不会触发回滚
+
+### 2.1 事务传播行为 propagation
+
+> 在 Spring 中，每个被 @Transactional 注解的方法执行时都要确定应该加入当前已经存在的事务中，还是开启一个新的事务，或者干脆不在事务中执行，而传播行为就是解决这个的
+
+Propagation 枚举定义了 7 种传播行为：
+
+1、 REQUIRED（默认）
+
+如果当前有事务，就加入；如果没有，就新建一个事务；当外层方法抛异常时，所有调用的方法一同回滚
+
+```java
+@Transactional(propagation = Propagation.REQUIRED)
+public void saveOrder() {
+    saveOrderInfo(); // 内部也为 REQUIRED，会加入同一个事务
+    saveLog(); // 也会加入同一个事务
+}
+```
+
+2、REQUIRES_NEW
+
+每次都新建一个事务，原有事务挂起，且外层失败不影响该方法事务，常用于记录日志或发送通知
+
+```java
+@Transactional(propagation = Propagation.REQUIRES_NEW)
+public void saveLog() {
+    // 不管外面有没有事务都新开一个
+}
+```
+
+3、NESTED（嵌套事务）
+
+如果当前有事务，则在其中嵌套一个子事务，子事务出错只会回滚到保存点，不影响主事务，如果当前没有事务则行为同 REQUIRED
+
+4、SUPPORTS
+
+如果当前有事务，就加入，所有操作受当前事务的提交/回滚控制；没有事务也能正常执行，方法以非事务方式执行（即数据库自动提交模式），不开启事务控制
+
+5、NOT_SUPPORTED
+
+不支持事务，如果当前有事务，挂起原事务，以非事务方式执行
+
+6、NEVER
+
+当前不能有事务，如果有就抛异常
+
+7、MANDATORY
+
+当前必须有事务，没有事务就抛异常
+
+****
+### 2.2 事务隔离级别 isolation
+
+1、@Transactional(isolation = Isolation.READ_UNCOMMITTED)
+
+读未提交，允许读取未提交的数据（脏读），每个事务可以看到其他事务还未提交的变更
+
+2、 @Transactional(isolation = Isolation.READ_COMMITTED)
+
+读已提交，只能读取已经提交的数据，可以防止脏读，但可能出现不可重复读和幻读，是 Oracle 的默认级别
+
+3、@Transactional(isolation = Isolation.REPEATABLE_READ)
+
+可重复读（MySQL 默认），同一事务中多次读取同一数据，结果一致，可以防止脏读和不可重复读，但仍可能出现幻读
+
+4、@Transactional(isolation = Isolation.SERIALIZABLE)
+
+可串行化，最高隔离级别，完全隔离所有并发问题，强制事务串行执行，不过性能最差，常用于金融、审计类场景
+
+****
+### 2.3 事务超时 @Transactional(timeout = 2)
+
+> 一个事务从开始到提交所允许的最长执行时间，一旦超过这个时间 Spring 会自动终止事务并回滚，以避免长时间占用数据库资源导致系统性能下降，默认值为 -1，也就是没设置超时时间，
+> 以秒为单位，且只对读写事务有效，对只读事务（readOnly = true）无效
+
+当使用的是 JDBC 的 DataSourceTransactionManager 进行事务管理时（声明式事务默认使用这个），超时机制只对数据库操作（SQL 执行）生效，不对 Java 层代码（如 sleep()）起作用，
+也就是说当 Thread.sleep(2) 方法放在最后一个 sql 语句后面时，不管程序睡眠多久都不会影响事务最终的提交，放在其他位置都会引起报错(事务从方法被调用时就开启)，当所有sql语句执行完毕后才计算时间是否超时
+
+****
+### 2.4 只读事务 @Transactional(readOnly = true)
+
+将当前事务设置为只读事务，在该事务执行过程中只允许select语句执行，delete insert update均不可执行。
+该特性的作用是：启动spring的优化策略，提高select语句执行效率，如果该事务中确实没有增删改操作，建议设置为只读事务
+
+****
+
+### 2.5 设置哪些异常回滚事务
+
+@Transactional(rollbackFor = RuntimeException.class)：表示只有发生RuntimeException异常或该异常的子类异常才回滚
+
+@Transactional(noRollbackFor = NullPointerException.class)：表示发生NullPointerException或该异常的子类异常不回滚，其他异常则回滚
+
+****
+## 3. 事务的全注解开发
+
+编写一个[TransactionConfig](./Demo4-web/src/main/java/com/cell/transaction/bank/config/TransactionConfig.java)类来代替配置文件
+
+****
+## 4. 基于 XML 实现事务管理
+
+- 第一步：配置事务管理器[transactionXML.xml](./Demo4-web/src/main/resources/transactionXML.xml)
+- 第二步：配置通知
+- 第三步：配置切面
+
+注意：使用这种方式不能再在 Service 类上添加 @Transactional 注解
+
+****
+
+
+
+
+
+
+
 
 
 
